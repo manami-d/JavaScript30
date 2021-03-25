@@ -9,7 +9,7 @@ const getVideo = () => {
     .getUserMedia({ video: true, audio: false })
     .then((localMediaStream) => {
       console.log(localMediaStream);
-      video.src = window.URL.createObjectURL(localMediaStream);
+      video.srcObject = localMediaStream;
       video.play();
     })
     .catch((err) => {
@@ -24,7 +24,78 @@ const paintToCanvas = () => {
   canvas.width = width;
   canvas.height = height;
 
-  setInterval(() => {
+  return setInterval(() => {
     ctx.drawImage(video, 0, 0, width, height);
+    let pixels = ctx.getImageData(0, 0, width, height);
+    // pixels = redEffect(pixels);
+    pixels = rgbSplit(pixels);
+    // ctx.globalAlpha = 0.1;
+
+    // pixels = greenScreen(pixels);
+    ctx.putImageData(pixels, 0, 0);
   }, 16);
 };
+
+const takePhoto = () => {
+  // played the sound
+  snap.currentTime = 0;
+  snap.play();
+
+  //take the data out of the canvas
+  const data = canvas.toDataURL("image/jpeg");
+  const link = document.createElement("a");
+  link.href = data;
+  link.setAttribute("download", "handsome");
+  link.innerHTML = `<img src="${data}" alt="Handsome Man" />`;
+  strip.insertBefore(link, strip.firstChild);
+};
+
+const redEffect = (pixels) => {
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    pixels.data[i - 150] = pixels.data[i + 0]; // RED
+    pixels.data[i + 500] = pixels.data[i + 1]; // GREEN
+    pixels.data[i - 550] = pixels.data[i + 2]; // Blue
+  }
+  return pixels;
+};
+
+const rgbSplit = (pixels) => {
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    pixels[i - 150] = pixels.data[i]; //red
+    pixels[i + 500] = pixels.data[i + 1]; //green
+    pixels[i - 550] = pixels.data[i + 2]; //blue
+  }
+  return pixels;
+};
+
+const greenScreen = (pixels) => {
+  const levels = {};
+
+  document.querySelectorAll(".rgb input").forEach((input) => {
+    levels[input.name] = input.value;
+  });
+
+  for (i = 0; i < pixels.data.length; i = i + 4) {
+    red = pixels.data[i + 0];
+    green = pixels.data[i + 1];
+    blue = pixels.data[i + 2];
+    alpha = pixels.data[i + 3];
+
+    if (
+      red >= levels.rmin &&
+      green >= levels.gmin &&
+      blue >= levels.bmin &&
+      red <= levels.rmax &&
+      green <= levels.gmax &&
+      blue <= levels.bmax
+    ) {
+      // take it out!
+      pixels.data[i + 3] = 0;
+    }
+  }
+
+  return pixels;
+};
+getVideo();
+
+video.addEventListener("canplay", paintToCanvas);
